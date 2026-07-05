@@ -3,6 +3,7 @@
 
 # Log files
 *.log
+*.err
 
 # Package Files
 *.jar
@@ -33,6 +34,9 @@ target/
 # IDE - VS Code
 .vscode/
 
+# Claude
+.claude/
+
 # OS generated files
 .DS_Store
 .DS_Store?
@@ -48,3 +52,7 @@ spring-boot-devtools.properties
 # Env files
 .env
 .env.local
+
+# Startup logs
+startup*.log
+startup*.err
