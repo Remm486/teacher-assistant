@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>教师学生助手 - 登录</title>
+  <!-- Element Plus CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    #app {
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .login-card {
+      width: 420px;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .login-card .el-card__header {
+      text-align: center;
+      padding: 20px 20px 0;
+      border-bottom: none;
+    }
+    .login-card h2 {
+      font-size: 24px;
+      color: #303133;
+      margin-bottom: 4px;
+    }
+    .login-card .subtitle {
+      color: #909399;
+      font-size: 13px;
+    }
+    .login-card .el-tabs__header { margin-bottom: 10px; }
+    .el-button--primary { width: 100%; margin-top: 8px; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <el-card class="login-card" shadow="always">
+    <template #header>
+      <h2>📚 教师学生助手</h2>
+      <p class="subtitle">Teacher & Student Assistant</p>
+    </template>
+
+    <el-tabs v-model="activeTab" stretch>
+      <!-- ============ 登录 Tab ============ -->
+      <el-tab-pane label="登录" name="login">
+        <el-form :model="loginForm" :rules="loginRules" ref="loginRef"
+                 @keyup.enter="handleLogin" label-position="top">
+          <el-form-item label="用户名" prop="username">
+            <el-input v-model="loginForm.username" placeholder="请输入用户名"
+                      prefix-icon="User" clearable />
+          </el-form-item>
+          <el-form-item label="密码" prop="password">
+            <el-input v-model="loginForm.password" placeholder="请输入密码"
+                      prefix-icon="Lock" type="password" show-password clearable />
+          </el-form-item>
+          <el-form-item label="身份" prop="role">
+            <el-select v-model="loginForm.role" placeholder="请选择您的身份" style="width:100%">
+              <el-option label="学生" value="0"></el-option>
+              <el-option label="教师" value="1"></el-option>
+              <el-option label="管理员" value="2"></el-option>
+            </el-select>
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" @click="handleLogin" :loading="loginLoading"
+                       size="large">
+              登  录
+            </el-button>
+          </el-form-item>
+        </el-form>
+        <el-divider />
+        <p style="text-align:center;color:#909399;font-size:12px;">
+          测试账号：admin / admin123 · 2021001 / 123456 · T001 / 123456
+        </p>
+      </el-tab-pane>
+
+      <!-- ============ 注册 Tab ============ -->
+      <el-tab-pane label="注册" name="register">
+        <el-form :model="regForm" :rules="regRules" ref="regRef"
+                 @keyup.enter="handleRegister" label-position="top">
+          <el-form-item label="用户名" prop="username">
+            <el-input v-model="regForm.username" placeholder="请输入用户名"
+                      prefix-icon="User" clearable />
+          </el-form-item>
+          <el-form-item label="真实姓名" prop="realName">
+            <el-input v-model="regForm.realName" placeholder="请输入真实姓名"
+                      clearable />
+          </el-form-item>
+          <el-form-item label="密码" prop="password">
+            <el-input v-model="regForm.password" placeholder="请输入密码"
+                      prefix-icon="Lock" type="password" show-password clearable />
+          </el-form-item>
+          <el-form-item label="角色" prop="role">
+            <el-select v-model="regForm.role" placeholder="请选择角色" style="width:100%">
+              <el-option :value="0" label="学生" />
+              <el-option :value="1" label="教师" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="性别">
+            <el-radio-group v-model="regForm.gender">
+              <el-radio label="男">男</el-radio>
+              <el-radio label="女">女</el-radio>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" @click="handleRegister" :loading="regLoading"
+                       size="large">
+              注  册
+            </el-button>
+          </el-form-item>
+        </el-form>
+      </el-tab-pane>
+    </el-tabs>
+  </el-card>
+</div>
+
+<!-- CDN 依赖 -->
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="https://unpkg.com/element-plus"></script>
+<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+
+<script>
+const { createApp, ref, reactive } = Vue
+
+const app = createApp({
+  setup() {
+    // ==================== 状态 ====================
+    const activeTab  = ref('login')
+    const loginRef   = ref(null)
+    const regRef     = ref(null)
+    const loginLoading = ref(false)
+    const regLoading   = ref(false)
+
+    const loginForm = reactive({ username: '', password: '', role: '' })
+    const regForm   = reactive({ username: '', realName: '', password: '', role: 0, gender: '男' })
+
+    const loginRules = {
+      username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+      password: [{ required: true, message: '请输入密码',   trigger: 'blur' }],
+      role:     [{ required: true, message: '请选择角色',   trigger: 'change' }]
+    }
+    const regRules = {
+      username: [{ required: true, message: '请输入用户名',   trigger: 'blur' }],
+      realName: [{ required: true, message: '请输入真实姓名', trigger: 'blur' }],
+      password: [{ required: true, message: '请输入密码',     trigger: 'blur' },
+                 { min: 3, message: '密码至少3位',            trigger: 'blur' }],
+      role:     [{ required: true, message: '请选择角色',     trigger: 'change' }]
+    }
+
+    // ==================== 登录 ====================
+    const handleLogin = async () => {
+      try {
+        await loginRef.value.validate()
+      } catch { return }
+
+      loginLoading.value = true
+      try {
+        // 确保 role 转为数字类型
+        const loginData = {
+          username: loginForm.username,
+          password: loginForm.password,
+          role: parseInt(loginForm.role)
+        }
+        const { data: res } = await axios.post('/user/login', loginData)
+        if (res.code === 200) {
+          localStorage.setItem('user', JSON.stringify(res.data))
+          ElementPlus.ElMessage.success('登录成功，欢迎 ' + res.data.realName)
+          // 延迟跳转，让用户看到提示
+          setTimeout(() => { window.location.href = '/main.html' }, 600)
+        } else {
+          ElementPlus.ElMessage.error(res.message || '登录失败')
+        }
+      } catch (err) {
+        ElementPlus.ElMessage.error('网络错误：' + (err.message || '请检查服务是否启动'))
+      } finally {
+        loginLoading.value = false
+      }
+    }
+
+    // ==================== 注册 ====================
+    const handleRegister = async () => {
+      try {
+        await regRef.value.validate()
+      } catch { return }
+
+      regLoading.value = true
+      try {
+        const { data: res } = await axios.post('/user/add', regForm)
+        if (res.code === 200) {
+          ElementPlus.ElMessage.success('注册成功，请登录')
+          activeTab.value = 'login'
+          loginForm.username = regForm.username
+          loginForm.password = ''
+        } else {
+          ElementPlus.ElMessage.error(res.message || '注册失败')
+        }
+      } catch (err) {
+        ElementPlus.ElMessage.error('网络错误：' + (err.message || '请检查服务是否启动'))
+      } finally {
+        regLoading.value = false
+      }
+    }
+
+    return {
+      activeTab, loginRef, regRef,
+      loginForm, regForm, loginRules, regRules,
+      loginLoading, regLoading,
+      handleLogin, handleRegister
+    }
+  }
+})
+
+app.use(ElementPlus)
+app.mount('#app')
+</script>
+</body>
+</html>

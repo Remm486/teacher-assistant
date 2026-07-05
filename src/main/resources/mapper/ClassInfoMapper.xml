@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.assistant.dao.ClassInfoMapper">
+
+    <!-- ==================== 结果映射 ==================== -->
+    <resultMap id="classInfoResultMap" type="com.assistant.model.ClassInfo">
+        <id     property="id"          column="id"/>
+        <result property="className"   column="class_name"/>
+        <result property="grade"       column="grade"/>
+        <result property="department"  column="department"/>
+        <result property="teacherId"   column="teacher_id"/>
+        <result property="description" column="description"/>
+        <result property="createdAt"   column="created_at"/>
+        <result property="updatedAt"   column="updated_at"/>
+    </resultMap>
+
+    <sql id="allColumns">
+        id, class_name, grade, department, teacher_id, description, created_at, updated_at
+    </sql>
+
+    <!-- ==================== 新增 ==================== -->
+    <insert id="insert" parameterType="com.assistant.model.ClassInfo" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO t_class (class_name, grade, department, teacher_id, description)
+        VALUES (#{className}, #{grade}, #{department}, #{teacherId}, #{description})
+    </insert>
+
+    <!-- ==================== 删除 ==================== -->
+    <delete id="deleteById">
+        DELETE FROM t_class WHERE id = #{id}
+    </delete>
+
+    <!-- ==================== 更新 ==================== -->
+    <update id="update" parameterType="com.assistant.model.ClassInfo">
+        UPDATE t_class
+        <set>
+            <if test="className   != null">class_name   = #{className},</if>
+            <if test="grade       != null">grade        = #{grade},</if>
+            <if test="department  != null">department   = #{department},</if>
+            <if test="teacherId   != null">teacher_id   = #{teacherId},</if>
+            <if test="description != null">description  = #{description},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <!-- ==================== 查询 ==================== -->
+
+    <select id="selectById" resultMap="classInfoResultMap">
+        SELECT <include refid="allColumns"/> FROM t_class WHERE id = #{id}
+    </select>
+
+    <select id="selectAll" resultMap="classInfoResultMap">
+        SELECT <include refid="allColumns"/> FROM t_class ORDER BY id
+    </select>
+
+    <select id="selectByTeacherId" resultMap="classInfoResultMap">
+        SELECT <include refid="allColumns"/> FROM t_class WHERE teacher_id = #{teacherId} ORDER BY id
+    </select>
+
+    <select id="selectClassIdsByTeacherId" resultType="java.lang.Long">
+        SELECT id FROM t_class WHERE teacher_id = #{teacherId}
+    </select>
+
+</mapper>

@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>教师学生助手</title>
+  <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    #app { height: 100vh; }
+
+    /* ========== 顶部栏 ========== */
+    .app-header {
+      background: linear-gradient(90deg, #667eea, #764ba2);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      height: 60px;
+    }
+    .app-header h3 { font-size: 18px; letter-spacing: 1px; }
+    .header-right { display: flex; align-items: center; gap: 12px; font-size: 14px; }
+    .header-right .el-button { color: #fff; border-color: rgba(255,255,255,0.5); }
+
+    /* ========== 侧边栏 ========== */
+    .app-aside {
+      background: #304156;
+      overflow-y: auto;
+    }
+    .el-menu { border-right: none !important; }
+
+    /* ========== 内容区 ========== */
+    .app-main { background: #f0f2f5; padding: 20px; overflow-y: auto; }
+
+    /* ========== 数据大屏卡片 ========== */
+    .stat-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 24px; }
+    .stat-card {
+      border-radius: 10px;
+      padding: 24px;
+      color: #fff;
+      text-align: center;
+    }
+    .stat-card .num   { font-size: 42px; font-weight: bold; margin: 8px 0 4px; }
+    .stat-card .label { font-size: 15px; opacity: 0.9; }
+    .stat-card.student { background: linear-gradient(135deg, #43e97b, #38f9d7); }
+    .stat-card.teacher { background: linear-gradient(135deg, #667eea, #764ba2); }
+    .stat-card.admin   { background: linear-gradient(135deg, #f093fb, #f5576c); }
+    .chart-box { width: 100%; height: 360px; background: #fff; border-radius: 10px; padding: 16px; }
+
+    /* ========== 聊天窗口容器 ========== */
+    .chat-container {
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 160px);
+      background: #fff;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .chat-header {
+      padding: 16px 20px;
+      background: #f5f7fa;
+      border-bottom: 1px solid #ebeef5;
+      font-weight: bold;
+      font-size: 16px;
+    }
+    .chat-input {
+      display: flex;
+      align-items: center;
+      padding: 12px 16px;
+      border-top: 1px solid #ebeef5;
+      background: #fff;
+      gap: 10px;
+    }
+    .chat-input .el-input {
+      flex: 1;
+    }
+
+    /* ========== AI 助手 ========== */
+    .ai-container { display: flex; flex-direction: column; height: calc(100vh - 160px); background: #fff; border-radius: 10px; overflow: hidden; }
+    .ai-header { padding: 16px 20px; background: linear-gradient(90deg, #667eea, #764ba2); color: #fff; font-weight: bold; font-size: 16px; }
+    .ai-messages { flex: 1; overflow-y: auto; padding: 20px; background: #f9fafc; }
+    .ai-msg { margin-bottom: 20px; display: flex; }
+    .ai-msg.ai { justify-content: flex-start; }
+    .ai-msg.user { justify-content: flex-end; }
+    .ai-msg .bubble { max-width: 70%; padding: 14px 18px; border-radius: 14px; font-size: 14px; line-height: 1.8; word-break: break-all; white-space: pre-wrap; }
+    .ai-msg.ai .bubble  { background: #fff; border: 1px solid #e4e7ed; }
+    .ai-msg.user .bubble { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; }
+    .ai-msg .role-tag { font-size: 11px; color: #909399; margin-bottom: 4px; }
+    .ai-msg.user .role-tag { color: rgba(255,255,255,0.8); text-align: right; }
+    .ai-input { display: flex; padding: 12px 16px; border-top: 1px solid #ebeef5; background: #fff; }
+    .ai-input .el-input { flex: 1; margin-right: 10px; }
+    .typing-dot::after { content: '▍'; animation: blink 0.6s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+  </style>
+</head>
+<body>
+<div id="app">
+  <el-container style="height:100vh">
+    <!-- ==================== 顶部栏 ==================== -->
+    <el-header class="app-header">
+      <h3>📚 教师学生助手</h3>
+      <div class="header-right">
+        <span>👋 {{ currentUser.realName }}</span>
+        <el-tag :type="roleTagType" size="small">{{ roleLabel }}</el-tag>
+        <el-button text @click="handleLogout">退出</el-button>
+      </div>
+    </el-header>
+
+    <el-container>
+      <!-- ==================== 左侧导航 ==================== -->
+      <el-aside width="200px" class="app-aside">
+        <el-menu :default-active="activeMenu" @select="handleMenuSelect"
+                 background-color="#304156" text-color="#bfcbd9" active-text-color="#409EFF">
+          <!-- 管理员专属：数据大屏 -->
+          <el-menu-item index="dashboard" v-if="currentUser.role === 2">
+            <span>📊 数据大屏</span>
+          </el-menu-item>
+          <!-- 管理员专属：教师管理 -->
+          <el-menu-item index="teachers" v-if="currentUser.role === 2">
+            <span>👨‍🏫 教师管理</span>
+          </el-menu-item>
+          <!-- 管理员和教师可看：学生管理 -->
+          <el-menu-item index="students" v-if="currentUser.role === 2 || currentUser.role === 1">
+            <span>👨‍🎓 学生管理</span>
+          </el-menu-item>
+          <!-- 教师专属：班级管理 -->
+          <el-menu-item index="classes" v-if="currentUser.role === 1">
+            <span>🏫 班级管理</span>
+          </el-menu-item>
+          <!-- 学生专属：我的班级 -->
+          <el-menu-item index="myClass" v-if="currentUser.role === 0">
+            <span>🏫 我的班级</span>
+          </el-menu-item>
+          <!-- 教师和学生可看：AI 助手 -->
+          <el-menu-item index="ai" v-if="currentUser.role === 1 || currentUser.role === 0">
+            <span>🤖 AI 助手</span>
+          </el-menu-item>
+          <!-- 所有角色：个人中心 -->
+          <el-menu-item index="profile">
+            <span>👤 个人中心</span>
+          </el-menu-item>
+        </el-menu>
+      </el-aside>
+
+      <!-- ==================== 主内容区 ==================== -->
+      <el-main class="app-main">
+
+        <!-- ==================== 数据大屏（仅管理员可见）==================== -->
+        <div v-show="activeMenu === 'dashboard' && currentUser.role === 2">
+          <h3 style="margin-bottom:16px">📊 数据大屏</h3>
+          <div class="stat-cards">
+            <div class="stat-card student">
+              <div class="label">学生总数</div>
+              <div class="num">{{ stats.studentCount }}</div>
+            </div>
+            <div class="stat-card teacher">
+              <div class="label">教师总数</div>
+              <div class="num">{{ stats.teacherCount }}</div>
+            </div>
+            <div class="stat-card admin">
+              <div class="label">管理员总数</div>
+              <div class="num">{{ stats.adminCount }}</div>
+            </div>
+          </div>
+          <div class="chart-box">
+            <div ref="pieChartRef" style="width:100%;height:100%"></div>
+          </div>
+        </div>
+
+        <!-- ==================== 学生管理 ==================== -->
+        <div v-if="activeMenu === 'students'">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <h3>👨‍🎓 学生管理</h3>
+            <el-button type="primary" @click="showAddStudent">+ 新增学生</el-button>
+          </div>
+          <el-table :data="studentList" style="width: 100%" border v-loading="studentsLoading">
+            <el-table-column prop="id" label="ID" width="80"></el-table-column>
+            <el-table-column prop="username" label="学号"></el-table-column>
+            <el-table-column prop="realName" label="姓名"></el-table-column>
+            <el-table-column prop="gender" label="性别" width="80"></el-table-column>
+            <el-table-column prop="phone" label="电话"></el-table-column>
+            <el-table-column label="状态" width="100">
+              <template #default="scope">
+                <el-tag :type="scope.row.status===1?'success':'danger'" size="small">
+                  {{ scope.row.status===1?'正常':'禁用' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="180">
+              <template #default="scope">
+                <el-button size="small" type="primary" @click="showEditStudent(scope.row)">编辑</el-button>
+                <el-popconfirm title="确定删除该学生？" @confirm="deleteStudent(scope.row.id)">
+                  <template #reference>
+                    <el-button size="small" type="danger">删除</el-button>
+                  </template>
+                </el-popconfirm>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+
+        <!-- ==================== 教师管理（管理员专属）==================== -->
+        <div v-if="activeMenu === 'teachers'">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <h3>👨‍🏫 教师管理</h3>
+            <el-button type="primary" @click="showAddTeacher">+ 新增教师</el-button>
+          </div>
+          <el-table :data="teacherList" style="width: 100%" border v-loading="teachersLoading">
+            <el-table-column prop="id" label="ID" width="80"></el-table-column>
+            <el-table-column prop="username" label="工号"></el-table-column>
+            <el-table-column prop="realName" label="姓名"></el-table-column>
+            <el-table-column prop="gender" label="性别" width="80"></el-table-column>
+            <el-table-column prop="phone" label="电话"></el-table-column>
+            <el-table-column prop="email" label="邮箱"></el-table-column>
+            <el-table-column label="状态" width="100">
+              <template #default="scope">
+                <el-tag :type="scope.row.status===1?'success':'danger'" size="small">
+                  {{ scope.row.status===1?'正常':'禁用' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="180">
+              <template #default="scope">
+                <el-button size="small" type="primary" @click="showEditTeacher(scope.row)">编辑</el-button>
+                <el-popconfirm title="确定删除该教师？" @confirm="deleteTeacher(scope.row.id)">
+                  <template #reference>
+                    <el-button size="small" type="danger">删除</el-button>
+                  </template>
+                </el-popconfirm>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+
+        <!-- ==================== 班级管理 ==================== -->
+        <div v-if="activeMenu === 'classes'">
+          <h3 style="margin-bottom:16px">🏫 班级管理</h3>
+          <el-row :gutter="20">
+            <el-col :span="8" v-for="cls in classList" :key="cls.id" style="margin-bottom:20px">
+              <el-card shadow="hover">
+                <template #header>
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <span>{{ cls.className }}</span>
+                    <div>
+                      <el-button size="small" type="success" @click="openClassChat(cls)">进入群聊</el-button>
+                      <el-button size="small" type="primary" @click="viewClassDetail(cls.id)">查看学生</el-button>
+                    </div>
+                  </div>
+                </template>
+                <p>年级：{{ cls.grade }}</p>
+                <p>院系：{{ cls.department }}</p>
+                <p>说明：{{ cls.description }}</p>
+              </el-card>
+            </el-col>
+          </el-row>
+          <!-- 班级学生弹窗 -->
+          <el-dialog v-model="classDialogVisible" :title="classDialogTitle" width="600px">
+            <el-table :data="classStudents" style="width: 100%" border height="300">
+              <el-table-column prop="username" label="学号"></el-table-column>
+              <el-table-column prop="realName" label="姓名"></el-table-column>
+              <el-table-column prop="gender" label="性别" width="80"></el-table-column>
+              <el-table-column prop="phone" label="电话"></el-table-column>
+            </el-table>
+          </el-dialog>
+        </div>
+
+        <!-- ==================== 我的班级（学生专属）==================== -->
+        <div v-if="activeMenu === 'myClass'">
+          <h3 style="margin-bottom:16px">🏫 我的班级</h3>
+          <div v-if="myClassInfo" style="max-width: 500px;">
+            <el-card shadow="hover">
+              <template #header>
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <span style="font-size: 18px; font-weight: bold;">{{ myClassInfo.className }}</span>
+                  <el-button type="success" @click="openClassChat(myClassInfo)">进入群聊</el-button>
+                </div>
+              </template>
+              <p>年级：{{ myClassInfo.grade || '-' }}</p>
+              <p>院系：{{ myClassInfo.department || '-' }}</p>
+              <p>说明：{{ myClassInfo.description || '-' }}</p>
+            </el-card>
+          </div>
+          <div v-else>
+            <el-empty description="暂未分配班级" />
+          </div>
+        </div>
+
+        <!-- ==================== AI 助手 ==================== -->
+        <div v-if="activeMenu === 'ai'">
+          <h3 style="margin-bottom:16px">🤖 AI 智能助手</h3>
+          <div class="ai-container">
+            <div class="ai-header">AI 助手 — 有任何问题都可以问我</div>
+            <div class="ai-messages" ref="aiMessagesRef">
+              <div v-for="(msg, idx) in aiMessages" :key="idx"
+                   class="ai-msg" :class="msg.role">
+                <div>
+                  <div class="role-tag">{{ msg.role === 'user' ? '你' : 'AI 助手' }}</div>
+                  <div class="bubble" :class="{ 'typing-dot': msg.loading }">{{ msg.content }}</div>
+                </div>
+              </div>
+            </div>
+            <div class="ai-input">
+              <el-input v-model="aiInput" placeholder="输入你的问题..."
+                        @keyup.enter="sendAiQuestion" clearable :disabled="aiLoading" />
+              <el-button type="primary" @click="sendAiQuestion" :loading="aiLoading">发送</el-button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==================== 个人中心 ==================== -->
+        <div v-if="activeMenu === 'profile'">
+          <h3 style="margin-bottom:16px">👤 个人中心</h3>
+          <el-card style="max-width:500px">
+            <el-descriptions :column="1" border>
+              <el-descriptions-item label="用户名">{{ currentUser.username }}</el-descriptions-item>
+              <el-descriptions-item label="真实姓名">{{ currentUser.realName }}</el-descriptions-item>
+              <el-descriptions-item label="角色">{{ roleLabel }}</el-descriptions-item>
+              <el-descriptions-item label="性别">{{ currentUser.gender || '-' }}</el-descriptions-item>
+              <el-descriptions-item label="电话">{{ currentUser.phone  || '-' }}</el-descriptions-item>
+              <el-descriptions-item label="邮箱">{{ currentUser.email  || '-' }}</el-descriptions-item>
+            </el-descriptions>
+            <div style="display: flex; justify-content: space-between; gap: 15px; margin-top: 20px;">
+              <el-button type="primary" style="flex: 1;" @click="showProfileDialog">编辑信息</el-button>
+              <el-button type="danger" style="flex: 1;" @click="handleLogout">退出登录</el-button>
+            </div>
+          </el-card>
+        </div>
+
+      </el-main>
+    </el-container>
+  </el-container>
+
+  <!-- ==================== 新增/编辑学生弹窗 ==================== -->
+  <el-dialog v-model="studentDialogVisible" :title="isEditStudent ? '编辑学生' : '新增学生'" width="500px">
+    <el-form :model="studentForm" label-width="80px">
+      <el-form-item label="用户名">
+        <el-input v-model="studentForm.username" :disabled="isEditStudent" />
+      </el-form-item>
+      <el-form-item label="真实姓名">
+        <el-input v-model="studentForm.realName" />
+      </el-form-item>
+      <el-form-item label="密码" v-if="!isEditStudent">
+        <el-input v-model="studentForm.password" type="password" />
+      </el-form-item>
+      <el-form-item label="所属班级">
+        <el-select v-model="studentForm.classId" placeholder="请选择班级" style="width:100%" :disabled="currentUser.role !== 2">
+          <el-option v-for="cls in allClassList" :key="cls.id" :label="cls.className" :value="cls.id" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="性别">
+        <el-radio-group v-model="studentForm.gender">
+          <el-radio label="男">男</el-radio>
+          <el-radio label="女">女</el-radio>
+        </el-radio-group>
+      </el-form-item>
+      <el-form-item label="电话">
+        <el-input v-model="studentForm.phone" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="studentDialogVisible=false">取消</el-button>
+      <el-button type="primary" @click="saveStudent">保存</el-button>
+    </template>
+  </el-dialog>
+
+  <!-- ==================== 个人信息编辑弹窗 ==================== -->
+  <el-dialog v-model="profileDialogVisible" title="编辑个人信息" width="500px">
+    <el-form :model="profileForm" label-width="80px">
+      <el-form-item label="用户名">
+        <el-input v-model="profileForm.username" disabled />
+      </el-form-item>
+      <el-form-item label="真实姓名">
+        <el-input v-model="profileForm.realName" disabled />
+      </el-form-item>
+      <el-form-item label="角色">
+        <el-input :value="roleLabel" disabled />
+      </el-form-item>
+      <el-form-item label="性别">
+        <el-radio-group v-model="profileForm.gender">
+          <el-radio label="男">男</el-radio>
+          <el-radio label="女">女</el-radio>
+        </el-radio-group>
+      </el-form-item>
+      <el-form-item label="电话">
+        <el-input v-model="profileForm.phone" />
+      </el-form-item>
+      <el-form-item label="邮箱">
+        <el-input v-model="profileForm.email" />
+      </el-form-item>
+      <el-form-item label="新密码">
+        <el-input v-model="profileForm.password" type="password" placeholder="不修改请留空" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="profileDialogVisible=false">取消</el-button>
+      <el-button type="primary" @click="saveProfile">保存</el-button>
+    </template>
+  </el-dialog>
+
+  <!-- ==================== 新增/编辑教师弹窗 ==================== -->
+  <el-dialog v-model="teacherDialogVisible" :title="isEditTeacher ? '编辑教师' : '新增教师'" width="500px">
+    <el-form :model="teacherForm" label-width="80px">
+      <el-form-item label="工号">
+        <el-input v-model="teacherForm.username" :disabled="isEditTeacher" />
+      </el-form-item>
+      <el-form-item label="真实姓名">
+        <el-input v-model="teacherForm.realName" />
+      </el-form-item>
+      <el-form-item label="密码" v-if="!isEditTeacher">
+        <el-input v-model="teacherForm.password" type="password" />
+      </el-form-item>
+      <el-form-item label="所教班级" v-if="currentUser.role === 2">
+        <el-select v-model="teacherClassIds" multiple placeholder="请选择所教班级" style="width:100%">
+          <el-option v-for="cls in allClassList" :key="cls.id" :label="cls.className" :value="cls.id" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="性别">
+        <el-radio-group v-model="teacherForm.gender">
+          <el-radio label="男">男</el-radio>
+          <el-radio label="女">女</el-radio>
+        </el-radio-group>
+      </el-form-item>
+      <el-form-item label="电话">
+        <el-input v-model="teacherForm.phone" />
+      </el-form-item>
+      <el-form-item label="邮箱">
+        <el-input v-model="teacherForm.email" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="teacherDialogVisible=false">取消</el-button>
+      <el-button type="primary" @click="saveTeacher">保存</el-button>
+    </template>
+  </el-dialog>
+
+  <!-- ==================== 班级群聊弹窗（全局安全区：教师和学生都能访问）==================== -->
+  <el-dialog v-model="chatDialogVisible" :title="chatDialogTitle" width="700px" @close="closeClassChat"
+             :close-on-click-modal="false">
+    <div style="height: 450px; display: flex; flex-direction: column;">
+      <!-- 聊天头部 -->
+      <div style="padding: 10px 15px; background: #f5f7fa; border-bottom: 1px solid #ebeef5; font-size: 14px; color: #606266;">
+        当前用户：{{ currentUser.realName }}
+      </div>
+      <!-- 聊天消息列表 -->
+      <div ref="chatMessagesRef" style="flex: 1; display: flex; flex-direction: column; gap: 15px; padding: 15px; overflow-y: auto; background: #fafafa;">
+        <div v-for="(msg, idx) in chatMessages" :key="idx"
+             :style="{
+               display: 'flex',
+               justifyContent: String(msg.senderId) === String(currentUser.id) ? 'flex-end' : (msg.senderId === 'system' ? 'center' : 'flex-start')
+             }">
+          <div :style="{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: String(msg.senderId) === String(currentUser.id) ? 'flex-end' : 'flex-start',
+            maxWidth: '70%'
+          }">
+            <span v-if="msg.senderId !== 'system'" style="font-size: 12px; color: #888; margin-bottom: 4px; padding: 0 4px;">
+              {{ msg.senderName }}
+            </span>
+            <div :style="{
+              backgroundColor: String(msg.senderId) === String(currentUser.id) ? '#95ec69' : (msg.senderId === 'system' ? '#e9e9eb' : '#ffffff'),
+              padding: '10px 14px',
+              borderRadius: '8px',
+              lineHeight: '1.5',
+              wordBreak: 'break-word',
+              whiteSpace: 'pre-wrap',
+              textAlign: 'left',
+              color: msg.senderId === 'system' ? '#909399' : '#000000',
+              fontSize: msg.senderId === 'system' ? '12px' : '14px',
+              border: msg.senderId !== 'system' && String(msg.senderId) !== String(currentUser.id) ? '1px solid #e4e7ed' : 'none'
+            }">
+              {{ msg.content }}
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- 输入区域 -->
+      <div style="display: flex; align-items: center; padding: 12px 15px; border-top: 1px solid #ebeef5; background: #fff; gap: 10px;">
+        <el-input v-model="chatInput" placeholder="输入消息..." @keyup.enter="sendChatMessage" clearable style="flex: 1;" />
+        <el-button type="primary" @click="sendChatMessage">发 送</el-button>
+      </div>
+    </div>
+  </el-dialog>
+</div>
+
+<!-- CDN 依赖 -->
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="https://unpkg.com/element-plus"></script>
+<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+<script src="https://unpkg.com/echarts@5/dist/echarts.min.js"></script>
+
+<script>
+const { createApp, ref, reactive, computed, nextTick, onMounted, onBeforeUnmount } = Vue
+
+const app = createApp({
+  setup() {
+    // ==================== 全局状态 ====================
+    const currentUser  = reactive(JSON.parse(localStorage.getItem('user') || '{}'))
+
+    if (!currentUser.id) {
+      window.location.href = '/index.html'
+    }
+
+    // 根据角色设置默认页面：管理员->数据大屏，教师->班级管理，学生->ai助手
+    const defaultMenu = currentUser.role === 2 ? 'dashboard' : (currentUser.role === 1 ? 'classes' : 'ai')
+    const activeMenu   = ref(defaultMenu)
+
+    const roleLabel = computed(() => {
+      const map = { 0: '学生', 1: '教师', 2: '管理员' }
+      return map[currentUser.role] || '未知'
+    })
+    const roleTagType = computed(() => {
+      const map = { 0: 'success', 1: 'primary', 2: 'danger' }
+      return map[currentUser.role] || 'info'
+    })
+
+    const handleMenuSelect = (index) => { activeMenu.value = index }
+    const handleLogout = () => {
+      localStorage.removeItem('user')
+      window.location.href = '/index.html'
+    }
+
+    // ==================== 数据大屏 ====================
+    const stats = reactive({ studentCount: 0, teacherCount: 0, adminCount: 0 })
+    const pieChartRef = ref(null)
+    let pieChart = null
+
+    const loadStats = async () => {
+      try {
+        const { data: res } = await axios.get('/user/stats')
+        if (res.code === 200) {
+          Object.assign(stats, res.data)
+          renderPieChart()
+        }
+      } catch {}
+    }
+
+    const renderPieChart = () => {
+      nextTick(() => {
+        if (!pieChartRef.value) return
+        if (!pieChart) pieChart = echarts.init(pieChartRef.value)
+        pieChart.setOption({
+          title: { text: '用户角色分布', left: 'center' },
+          tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+          legend: { bottom: 10, left: 'center' },
+          series: [{
+            type: 'pie',
+            radius: ['40%', '65%'],
+            center: ['50%', '50%'],
+            label: { formatter: '{b}\n{c}人' },
+            data: [
+              { value: stats.studentCount, name: '学生', itemStyle: { color: '#43e97b' } },
+              { value: stats.teacherCount, name: '教师', itemStyle: { color: '#667eea' } },
+              { value: stats.adminCount,   name: '管理员', itemStyle: { color: '#f5576c' } }
+            ]
+          }]
+        })
+      })
+    }
+
+    // ==================== 学生管理 ====================
+    const studentList        = ref([])
+    const studentsLoading    = ref(false)
+    const studentDialogVisible = ref(false)
+    const isEditStudent      = ref(false)
+    const studentForm        = reactive({ id: null, username: '', realName: '', password: '', gender: '男', phone: '', role: 0, classId: null })
+    const allClassList       = ref([])  // 所有班级列表（用于下拉框）
+
+    const loadStudents = async () => {
+      studentsLoading.value = true
+      try {
+        // 教师只能看到自己班的学生
+        let url = '/user/list/role'
+        let params = { role: 0 }
+        if (currentUser.role === 1) {
+          url = '/user/list/teacher/students'
+          params = { teacherId: currentUser.id }
+        }
+        const { data: res } = await axios.get(url, { params })
+        if (res.code === 200) studentList.value = res.data
+      } catch {} finally { studentsLoading.value = false }
+    }
+
+    // 加载所有班级列表（带权限控制）
+    const loadAllClasses = async () => {
+      try {
+        const { data: res } = await axios.get('/classInfo/list', {
+          params: { operatorRole: currentUser.role, operatorId: currentUser.id }
+        })
+        if (res.code === 200) allClassList.value = res.data
+      } catch {}
+    }
+
+    const showAddStudent = () => {
+      isEditStudent.value = false
+      Object.assign(studentForm, { id: null, username: '', realName: '', password: '', gender: '男', phone: '', role: 0 })
+      studentDialogVisible.value = true
+    }
+    const showEditStudent = (row) => {
+      isEditStudent.value = true
+      Object.assign(studentForm, row)
+      studentDialogVisible.value = true
+    }
+    const saveStudent = async () => {
+      try {
+        let res
+        if (isEditStudent.value) {
+          res = (await axios.put('/user/update?operatorRole=' + currentUser.role, studentForm)).data
+        } else {
+          res = (await axios.post('/user/add', studentForm)).data
+        }
+        if (res.code === 200) {
+          ElementPlus.ElMessage.success(res.message)
+          studentDialogVisible.value = false
+          loadStudents()
+        } else {
+          ElementPlus.ElMessage.error(res.message)
+        }
+      } catch { ElementPlus.ElMessage.error('操作失败') }
+    }
+    const deleteStudent = async (id) => {
+      try {
+        const { data: res } = await axios.delete('/user/delete', { params: { id, operatorRole: currentUser.role, operatorId: currentUser.id } })
+        if (res.code === 200) { ElementPlus.ElMessage.success('删除成功'); loadStudents() }
+        else ElementPlus.ElMessage.error(res.message)
+      } catch { ElementPlus.ElMessage.error('删除失败') }
+    }
+
+    // ==================== 教师管理 ====================
+    const teacherList        = ref([])
+    const teachersLoading    = ref(false)
+    const teacherDialogVisible = ref(false)
+    const isEditTeacher      = ref(false)
+    const teacherForm        = reactive({ id: null, username: '', realName: '', password: '', gender: '男', phone: '', email: '', role: 1 })
+    const teacherClassIds    = ref([])  // 教师所带班级ID列表
+
+    const loadTeachers = async () => {
+      teachersLoading.value = true
+      try {
+        const { data: res } = await axios.get('/user/list/role', { params: { role: 1 } })
+        if (res.code === 200) teacherList.value = res.data
+      } catch {} finally { teachersLoading.value = false }
+    }
+
+    // 加载教师所带班级
+    const loadTeacherClasses = async (teacherId) => {
+      try {
+        const { data: res } = await axios.get('/classInfo/list/teacher', { params: { teacherId } })
+        if (res.code === 200 && res.data) {
+          teacherClassIds.value = res.data.map(cls => cls.id)
+        } else {
+          teacherClassIds.value = []
+        }
+      } catch { teacherClassIds.value = [] }
+    }
+
+    const showAddTeacher = () => {
+      isEditTeacher.value = false
+      Object.assign(teacherForm, { id: null, username: '', realName: '', password: '', gender: '男', phone: '', email: '', role: 1 })
+      teacherClassIds.value = []
+      teacherDialogVisible.value = true
+    }
+    const showEditTeacher = (row) => {
+      isEditTeacher.value = true
+      Object.assign(teacherForm, row)
+      teacherDialogVisible.value = true
+      // 加载该教师所带的班级
+      loadTeacherClasses(row.id)
+    }
+    const saveTeacher = async () => {
+      try {
+        let res
+        if (isEditTeacher.value) {
+          res = (await axios.put('/user/update?operatorRole=' + currentUser.role, teacherForm)).data
+          // 更新教师所带班级（仅管理员可操作）
+          if (res.code === 200 && currentUser.role === 2) {
+            await axios.put('/classInfo/update/teacher-classes?teacherId=' + teacherForm.id + '&operatorRole=' + currentUser.role, teacherClassIds.value)
+          }
+        } else {
+          res = (await axios.post('/user/add', teacherForm)).data
+        }
+        if (res.code === 200) {
+          ElementPlus.ElMessage.success(res.message)
+          teacherDialogVisible.value = false
+          loadTeachers()
+        } else {
+          ElementPlus.ElMessage.error(res.message)
+        }
+      } catch { ElementPlus.ElMessage.error('操作失败') }
+    }
+    const deleteTeacher = async (id) => {
+      try {
+        const { data: res } = await axios.delete('/user/delete', { params: { id, operatorRole: currentUser.role, operatorId: currentUser.id } })
+        if (res.code === 200) { ElementPlus.ElMessage.success('删除成功'); loadTeachers() }
+        else ElementPlus.ElMessage.error(res.message)
+      } catch { ElementPlus.ElMessage.error('删除失败') }
+    }
+
+    // ==================== 个人信息编辑 ====================
+    const profileDialogVisible = ref(false)
+    const profileForm = reactive({ username: '', realName: '', gender: '', phone: '', email: '', password: '' })
+
+    const showProfileDialog = () => {
+      // 用当前用户信息填充表单
+      Object.assign(profileForm, {
+        username: currentUser.username,
+        realName: currentUser.realName,
+        gender: currentUser.gender || '',
+        phone: currentUser.phone || '',
+        email: currentUser.email || '',
+        password: ''
+      })
+      profileDialogVisible.value = true
+    }
+
+    const saveProfile = async () => {
+      try {
+        const updateData = {
+          gender: profileForm.gender,
+          phone: profileForm.phone,
+          email: profileForm.email
+        }
+        // 只有输入了新密码才传密码字段
+        if (profileForm.password && profileForm.password.trim()) {
+          updateData.password = profileForm.password
+        }
+        const { data: res } = await axios.put('/user/update/profile?userId=' + currentUser.id + '&operatorId=' + currentUser.id, updateData)
+        if (res.code === 200) {
+          ElementPlus.ElMessage.success('更新成功')
+          profileDialogVisible.value = false
+          // 更新localStorage中的用户信息
+          const updatedUser = { ...currentUser, gender: profileForm.gender, phone: profileForm.phone, email: profileForm.email }
+          localStorage.setItem('user', JSON.stringify(updatedUser))
+          // 更新currentUser
+          Object.assign(currentUser, updatedUser)
+        } else {
+          ElementPlus.ElMessage.error(res.message)
+        }
+      } catch { ElementPlus.ElMessage.error('操作失败') }
+    }
+
+    // ==================== 班级管理 ====================
+    const classList = ref([])
+    const classDialogVisible = ref(false)
+    const classDialogTitle   = ref('')
+    const classStudents      = ref([])
+    const myClassInfo = ref(null)  // 学生所在的班级信息
+
+    const loadClasses = async () => {
+      try {
+        const { data: res } = await axios.get('/classInfo/list', {
+          params: { operatorRole: currentUser.role, operatorId: currentUser.id }
+        })
+        if (res.code === 200) classList.value = res.data
+      } catch {}
+    }
+
+    // 加载学生所在的班级信息（学生专属）
+    const loadMyClassInfo = async () => {
+      if (!currentUser.classId) return
+      try {
+        const { data: res } = await axios.get('/classInfo/' + currentUser.classId)
+        if (res.code === 200) myClassInfo.value = res.data
+      } catch { console.error('获取班级信息失败') }
+    }
+    const viewClassDetail = async (classId) => {
+      try {
+        const { data: res } = await axios.get('/classInfo/detail/students', { params: { classId } })
+        if (res.code === 200) {
+          classDialogTitle.value = (res.data.classInfo?.className || '班级') + ' - 学生列表'
+          classStudents.value    = res.data.students || []
+          classDialogVisible.value = true
+        }
+      } catch { ElementPlus.ElMessage.error('获取班级详情失败') }
+    }
+
+    // ==================== 班级群聊（B方案：弹窗式） ====================
+    const chatMessages   = ref([])
+    const chatInput      = ref('')
+    const chatMessagesRef = ref(null)
+    const chatDialogVisible = ref(false)
+    const chatDialogTitle   = ref('')
+    const currentChatClassId = ref(null)  // 当前聊天的班级ID
+    let ws = null
+
+    // 打开班级群聊弹窗（先加载历史记录，再打开弹窗，最后连接WebSocket）
+    const openClassChat = async (cls) => {
+      currentChatClassId.value = cls.id
+      chatDialogTitle.value = cls.className + ' - 群聊'
+      chatMessages.value = []  // 清空历史消息
+
+      // 1. 先加载最近50条历史记录
+      await loadChatHistory(cls.id)
+
+      // 2. 打开弹窗
+      chatDialogVisible.value = true
+
+      // 3. 建立WebSocket连接
+      connectWebSocket(cls.id, currentUser.id)
+    }
+
+    // 加载聊天历史记录
+    const loadChatHistory = async (classId) => {
+      try {
+        const { data: res } = await axios.get('/chat/history/' + classId)
+        if (res.code === 200 && res.data) {
+          // 将历史记录转换为前端消息格式
+          const historyMessages = res.data.map(msg => ({
+            senderId: String(msg.senderId),
+            senderName: msg.senderName || '未知用户',
+            content: msg.content,
+            timestamp: new Date(msg.sendTime).getTime()
+          }))
+          chatMessages.value = historyMessages
+        }
+      } catch (err) {
+        console.error('加载聊天历史失败:', err)
+      }
+    }
+
+    // 关闭班级群聊弹窗
+    const closeClassChat = () => {
+      if (ws) {
+        ws.close()
+        ws = null
+      }
+      currentChatClassId.value = null
+      chatMessages.value = []
+      chatInput.value = ''
+    }
+
+    // 建立WebSocket连接
+    const connectWebSocket = (classId, userId) => {
+      const wsUrl = 'ws://' + window.location.host + '/ws/chat/' + classId + '/' + userId
+      console.log('连接WebSocket:', wsUrl)
+      ws = new WebSocket(wsUrl)
+
+      ws.onopen = () => {
+        chatMessages.value.push({ senderId: 'system', content: '已连接到聊天服务器', senderName: '系统' })
+      }
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data)
+          chatMessages.value.push(msg)
+          scrollChat()
+        } catch {}
+      }
+      ws.onclose = () => {
+        // 弹窗关闭时不显示重连提示
+        if (chatDialogVisible.value) {
+          chatMessages.value.push({ senderId: 'system', content: '连接已断开', senderName: '系统' })
+        }
+      }
+      ws.onerror = () => {
+        if (ws) ws.close()
+      }
+    }
+
+    // 发送消息（保留senderName透传逻辑）
+    const sendChatMessage = () => {
+      if (!chatInput.value.trim() || !ws || ws.readyState !== WebSocket.OPEN) return
+
+      // 从localStorage获取当前用户信息
+      let loginUser = JSON.parse(localStorage.getItem('user') || '{}')
+      let realName = loginUser.realName || loginUser.username || ''
+      let myId = loginUser.id || currentUser.id
+
+      // 组装JSON载荷（包含senderId和senderName）
+      let messagePayload = {
+        senderId:   String(myId),
+        senderName: realName,
+        content:    chatInput.value.trim(),
+        chatType:   0,
+        msgType:    0
+      }
+
+      console.log('发送消息:', messagePayload)
+
+      // 发送给后端
+      ws.send(JSON.stringify(messagePayload))
+
+      // 清空输入框
+      chatInput.value = ''
+    }
+
+    // 滚动到底部
+    const scrollChat = () => {
+      nextTick(() => {
+        if (chatMessagesRef.value) {
+          chatMessagesRef.value.scrollTop = chatMessagesRef.value.scrollHeight
+        }
+      })
+    }
+
+    // ==================== AI 助手 ====================
+    const aiMessages    = ref([{ role: 'ai', content: '你好！我是教师学生助手的 AI 助手，有什么可以帮你？' }])
+    const aiInput       = ref('')
+    const aiLoading     = ref(false)
+    const aiMessagesRef = ref(null)
+
+    const sendAiQuestion = async () => {
+      const prompt = aiInput.value.trim()
+      if (!prompt || aiLoading.value) return
+
+      aiMessages.value.push({ role: 'user', content: prompt })
+      aiInput.value = ''
+      aiLoading.value = true
+      scrollAi()
+
+      // 插入 AI 加载占位气泡
+      const loadingIdx = aiMessages.value.length
+      aiMessages.value.push({ role: 'ai', content: '思考中', loading: true })
+
+      try {
+        const { data: res } = await axios.post('/ai/ask', { prompt })
+        if (res.code === 200) {
+          aiMessages.value[loadingIdx].content = res.data
+        } else {
+          aiMessages.value[loadingIdx].content = '请求失败：' + res.message
+        }
+      } catch (err) {
+        aiMessages.value[loadingIdx].content = '网络错误：' + (err.message || '请检查服务')
+      } finally {
+        aiMessages.value[loadingIdx].loading = false
+        aiLoading.value = false
+        scrollAi()
+      }
+    }
+
+    const scrollAi = () => {
+      nextTick(() => {
+        if (aiMessagesRef.value) {
+          aiMessagesRef.value.scrollTop = aiMessagesRef.value.scrollHeight
+        }
+      })
+    }
+
+    // ==================== 生命周期 ====================
+    onMounted(() => {
+      loadStats()
+      loadStudents()
+      loadTeachers()
+      loadClasses()
+      loadAllClasses()  // 加载所有班级（用于下拉框）
+      // 学生角色：加载自己的班级信息
+      if (currentUser.role === 0) {
+        loadMyClassInfo()
+      }
+      // WebSocket不再自动连接，改为点击"进入群聊"时按需连接
+      window.addEventListener('resize', () => { pieChart && pieChart.resize() })
+    })
+
+    onBeforeUnmount(() => {
+      ws && ws.close()
+      pieChart && pieChart.dispose()
+    })
+
+    return {
+      activeMenu, currentUser, roleLabel, roleTagType,
+      handleMenuSelect, handleLogout,
+      // 大屏
+      stats, pieChartRef,
+      // 学生
+      studentList, studentsLoading, studentDialogVisible, isEditStudent, studentForm,
+      showAddStudent, showEditStudent, saveStudent, deleteStudent, allClassList,
+      // 教师
+      teacherList, teachersLoading, teacherDialogVisible, isEditTeacher, teacherForm, teacherClassIds,
+      showAddTeacher, showEditTeacher, saveTeacher, deleteTeacher,
+      // 个人信息编辑
+      profileDialogVisible, profileForm, showProfileDialog, saveProfile,
+      // 班级
+      classList, classDialogVisible, classDialogTitle, classStudents, viewClassDetail, myClassInfo,
+      // 班级群聊（B方案：弹窗式）
+      chatMessages, chatInput, chatMessagesRef, chatDialogVisible, chatDialogTitle,
+      openClassChat, closeClassChat, sendChatMessage,
+      // AI
+      aiMessages, aiInput, aiLoading, aiMessagesRef, sendAiQuestion
+    }
+  }
+})
+
+app.use(ElementPlus)
+app.mount('#app')
+</script>
+</body>
+</html>

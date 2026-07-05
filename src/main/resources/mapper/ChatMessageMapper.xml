@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.assistant.dao.ChatMessageMapper">
+
+    <!-- ==================== 结果映射 ==================== -->
+    <resultMap id="chatMessageResultMap" type="com.assistant.model.ChatMessage">
+        <id     property="id"         column="id"/>
+        <result property="senderId"   column="sender_id"/>
+        <result property="senderName" column="sender_name"/>
+        <result property="receiverId" column="receiver_id"/>
+        <result property="chatType"   column="chat_type"/>
+        <result property="msgType"    column="msg_type"/>
+        <result property="content"    column="content"/>
+        <result property="sendTime"   column="send_time"/>
+        <result property="isRead"     column="is_read"/>
+    </resultMap>
+
+    <sql id="allColumns">
+        id, sender_id, sender_name, receiver_id, chat_type, msg_type, content, send_time, is_read
+    </sql>
+
+    <!-- ==================== 新增 ==================== -->
+    <insert id="insert" parameterType="com.assistant.model.ChatMessage" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO t_chat_message (sender_id, sender_name, receiver_id, chat_type, msg_type, content, is_read)
+        VALUES (#{senderId}, #{senderName}, #{receiverId}, #{chatType}, #{msgType}, #{content}, #{isRead})
+    </insert>
+
+    <!-- ==================== 删除 ==================== -->
+    <delete id="deleteById">
+        DELETE FROM t_chat_message WHERE id = #{id}
+    </delete>
+
+    <!-- ==================== 更新 ==================== -->
+    <update id="update" parameterType="com.assistant.model.ChatMessage">
+        UPDATE t_chat_message
+        <set>
+            <if test="senderId   != null">sender_id   = #{senderId},</if>
+            <if test="senderName != null">sender_name = #{senderName},</if>
+            <if test="receiverId != null">receiver_id = #{receiverId},</if>
+            <if test="chatType   != null">chat_type   = #{chatType},</if>
+            <if test="msgType    != null">msg_type    = #{msgType},</if>
+            <if test="content    != null">content     = #{content},</if>
+            <if test="isRead     != null">is_read     = #{isRead},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <!-- ==================== 查询 ==================== -->
+
+    <select id="selectById" resultMap="chatMessageResultMap">
+        SELECT <include refid="allColumns"/> FROM t_chat_message WHERE id = #{id}
+    </select>
+
+    <select id="selectAll" resultMap="chatMessageResultMap">
+        SELECT <include refid="allColumns"/> FROM t_chat_message ORDER BY send_time DESC
+    </select>
+
+    <!-- 群聊：查指定班级的所有群聊消息 -->
+    <select id="selectGroupMessages" resultMap="chatMessageResultMap">
+        SELECT <include refid="allColumns"/>
+        FROM t_chat_message
+        WHERE chat_type = 0 AND receiver_id = #{classId}
+        ORDER BY send_time ASC
+    </select>
+
+    <!-- 群聊：查指定班级的最近N条消息（用于历史记录加载） -->
+    <select id="selectRecentGroupMessages" resultMap="chatMessageResultMap">
+        SELECT <include refid="allColumns"/>
+        FROM t_chat_message
+        WHERE chat_type = 0 AND receiver_id = #{classId}
+        ORDER BY send_time DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 私聊：查两个用户之间的所有私聊消息 -->
+    <select id="selectPrivateMessages" resultMap="chatMessageResultMap">
+        SELECT <include refid="allColumns"/>
+        FROM t_chat_message
+        WHERE chat_type = 1
+          AND (
+              (sender_id = #{userIdA} AND receiver_id = #{userIdB})
+              OR
+              (sender_id = #{userIdB} AND receiver_id = #{userIdA})
+          )
+        ORDER BY send_time ASC
+    </select>
+
+</mapper>

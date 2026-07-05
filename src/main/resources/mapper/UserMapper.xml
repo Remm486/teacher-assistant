@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.assistant.dao.UserMapper">
+
+    <!-- ==================== 结果映射 ==================== -->
+    <resultMap id="userResultMap" type="com.assistant.model.User">
+        <id     property="id"        column="id"/>
+        <result property="username"  column="username"/>
+        <result property="password"  column="password"/>
+        <result property="realName"  column="real_name"/>
+        <result property="role"      column="role"/>
+        <result property="gender"    column="gender"/>
+        <result property="phone"     column="phone"/>
+        <result property="email"     column="email"/>
+        <result property="avatar"    column="avatar"/>
+        <result property="classId"   column="class_id"/>
+        <result property="status"    column="status"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <!-- 公共列片段，避免重复书写 -->
+    <sql id="allColumns">
+        id, username, password, real_name, role, gender,
+        phone, email, avatar, class_id, status, created_at, updated_at
+    </sql>
+
+    <!-- ==================== 新增 ==================== -->
+    <insert id="insert" parameterType="com.assistant.model.User" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO t_user (username, password, real_name, role, gender, phone, email, avatar, class_id, status)
+        VALUES (#{username}, #{password}, #{realName}, #{role}, #{gender}, #{phone}, #{email}, #{avatar}, #{classId}, #{status})
+    </insert>
+
+    <!-- ==================== 删除 ==================== -->
+    <delete id="deleteById">
+        DELETE FROM t_user WHERE id = #{id}
+    </delete>
+
+    <!-- ==================== 更新 ==================== -->
+    <update id="update" parameterType="com.assistant.model.User">
+        UPDATE t_user
+        <set>
+            <if test="username  != null">username  = #{username},</if>
+            <if test="password  != null">password  = #{password},</if>
+            <if test="realName  != null">real_name = #{realName},</if>
+            <if test="role      != null">role      = #{role},</if>
+            <if test="gender    != null">gender    = #{gender},</if>
+            <if test="phone     != null">phone     = #{phone},</if>
+            <if test="email     != null">email     = #{email},</if>
+            <if test="avatar    != null">avatar    = #{avatar},</if>
+            <if test="classId   != null">class_id  = #{classId},</if>
+            <if test="status    != null">status    = #{status},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <!-- ==================== 查询 ==================== -->
+
+    <select id="selectById" resultMap="userResultMap">
+        SELECT <include refid="allColumns"/> FROM t_user WHERE id = #{id}
+    </select>
+
+    <select id="selectByUsername" resultMap="userResultMap">
+        SELECT <include refid="allColumns"/> FROM t_user WHERE username = #{username}
+    </select>
+
+    <select id="selectAll" resultMap="userResultMap">
+        SELECT <include refid="allColumns"/> FROM t_user ORDER BY id
+    </select>
+
+    <select id="selectByRole" resultMap="userResultMap">
+        SELECT <include refid="allColumns"/> FROM t_user WHERE role = #{role} ORDER BY id
+    </select>
+
+    <select id="selectByClassId" resultMap="userResultMap">
+        SELECT <include refid="allColumns"/> FROM t_user WHERE class_id = #{classId} ORDER BY id
+    </select>
+
+</mapper>
